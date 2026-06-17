@@ -1480,3 +1480,311 @@ document.addEventListener('input', async (e) => {
    INITIALIZE
    ---------------------------------------------------------------- */
 renderDashboard();
+
+/* ================================================================
+   SEARCH BOX — Baidu (default) / Google, engine saved in storage
+   ================================================================ */
+
+const SEARCH_ENGINES = {
+  baidu:  { url: 'https://www.baidu.com/s?wd=',       label: '百度' },
+  google: { url: 'https://www.google.com/search?q=',  label: 'Google' },
+};
+
+let currentSearchEngine = 'baidu';
+
+async function initSearchBox() {
+  const { searchEngine = 'baidu' } = await chrome.storage.local.get('searchEngine');
+  currentSearchEngine = searchEngine;
+
+  const setBtns = () => document.querySelectorAll('.search-engine-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.engine === currentSearchEngine);
+  });
+  setBtns();
+
+  const form = document.getElementById('searchForm');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('searchInput');
+      const q = input ? input.value.trim() : '';
+      if (!q) return;
+      const engine = SEARCH_ENGINES[currentSearchEngine] || SEARCH_ENGINES.baidu;
+      window.open(engine.url + encodeURIComponent(q), '_top');
+    });
+  }
+
+  document.querySelectorAll('.search-engine-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      currentSearchEngine = btn.dataset.engine;
+      await chrome.storage.local.set({ searchEngine: currentSearchEngine });
+      setBtns();
+      const input = document.getElementById('searchInput');
+      if (input) input.focus();
+    });
+  });
+}
+
+
+/* ================================================================
+   TO-DO LIST — simple checklist stored in chrome.storage.local
+   ================================================================ */
+
+const TODO_KEY = 'todos';
+
+async function getTodos() {
+  const { [TODO_KEY]: todos = [] } = await chrome.storage.local.get(TODO_KEY);
+  return todos;
+}
+
+async function saveTodos(todos) {
+  await chrome.storage.local.set({ [TODO_KEY]: todos });
+}
+
+function renderTodoItem(todo) {
+  const li = document.createElement('div');
+  li.className = 'deferred-item todo-item';
+  li.dataset.id = todo.id;
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'deferred-checkbox todo-checkbox';
+  checkbox.checked = !!todo.done;
+  checkbox.addEventListener('change', () => toggleTodo(todo.id));
+
+  const info = document.createElement('div');
+  info.className = 'deferred-info todo-info';
+  const title = document.createElement('span');
+  title.className = 'deferred-title todo-title';
+  title.textContent = todo.text;
+  if (todo.done) title.classList.add('done');
+  info.appendChild(title);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'action-btn todo-delete';
+  del.innerHTML = (typeof ICONS !== 'undefined' && ICONS.close) ? ICONS.close : '×';
+  del.title = '删除';
+  del.addEventListener('click', () => deleteTodo(todo.id));
+
+  li.append(checkbox, info, del);
+  return li;
+}
+
+async function renderTodoList() {
+  const list  = document.getElementById('todoList');
+  const empty = document.getElementById('todoEmpty');
+  const count = document.getElementById('todoCount');
+  if (!list) return;
+
+  const todos = await getTodos();
+  list.innerHTML = '';
+  todos.forEach(t => list.appendChild(renderTodoItem(t)));
+
+  if (count) count.textContent = todos.length ? String(todos.length) : '';
+  if (empty) empty.style.display = todos.length ? 'none' : 'block';
+}
+
+async function addTodo(text) {
+  const todos = await getTodos();
+  todos.unshift({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, done: false });
+  await saveTodos(todos);
+  await renderTodoList();
+}
+
+async function toggleTodo(id) {
+  const todos = await getTodos();
+  const t = todos.find(x => x.id === id);
+  if (t) {
+    t.done = !t.done;
+    await saveTodos(todos);
+    await renderTodoList();
+  }
+}
+
+async function deleteTodo(id) {
+  let todos = await getTodos();
+  todos = todos.filter(x => x.id !== id);
+  await saveTodos(todos);
+  await renderTodoList();
+}
+
+function initTodoList() {
+  const form = document.getElementById('todoAddForm');
+  const input = document.getElementById('todoInput');
+  if (form && input) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      addTodo(text);
+      input.value = '';
+    });
+  }
+  renderTodoList();
+}
+
+initSearchBox();
+initTodoList();
+
+// Keep todo list in sync if storage changes from another Tab Out tab
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  if (changes[TODO_KEY]) renderTodoList();
+});
+
+/* ================================================================
+   THEME TOGGLE — light/dark
+
+   - Default theme follows the time of day:
+       06:00–18:59  -> light
+       19:00–05:59  -> dark
+   - The toggle only changes the theme for the current tab;
+     opening a new tab always re-applies the time-of-day default.
+   - Syncs across open Tab Out tabs via storage.onChanged.
+   - The icon shows the mode you will switch TO:
+       light mode  -> moon icon  (click to go dark)
+       dark mode   -> sun icon   (click to go light)
+   ================================================================ */
+
+function themeByTimeOfDay() {
+  const h = new Date().getHours();
+  // 6:00 .. 18:59 = light, otherwise dark
+  return (h >= 6 && h < 19) ? 'light' : 'dark';
+}
+
+function applyTheme(theme) {
+  document.body.classList.toggle('theme-dark', theme === 'dark');
+  const toggle = document.getElementById('themeToggle');
+  if (toggle) {
+    toggle.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+  }
+}
+
+async function initThemeToggle() {
+  // Always start from the time-of-day default; the toggle is per-tab only.
+  applyTheme(themeByTimeOfDay());
+
+  const toggle = document.getElementById('themeToggle');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      const isDark = document.body.classList.contains('theme-dark');
+      applyTheme(isDark ? 'light' : 'dark');
+    });
+  }
+}
+
+initThemeToggle();
+
+
+/* ================================================================
+   CUSTOM BACKGROUND — user-defined solid color / image URL
+
+   - Stored in chrome.storage.local under BG_KEY.
+   - { color: '#rrggbb' | null, imageUrl: 'https://...' | null }
+   - Overrides the default time-of-day background when set.
+   - Syncs across open Tab Out tabs via storage.onChanged.
+   ================================================================ */
+
+const BG_KEY = 'bgCustom';
+
+function applyCustomBg(state) {
+  const color = state && state.color;
+  const imageUrl = state && state.imageUrl;
+  const hasCustom = Boolean(color || imageUrl);
+
+  document.body.classList.toggle('has-custom-bg', hasCustom);
+  document.body.classList.toggle('has-bg-image', Boolean(imageUrl));
+
+  if (color) {
+    document.body.style.setProperty('--custom-bg-color', color);
+  } else {
+    document.body.style.removeProperty('--custom-bg-color');
+  }
+
+  if (imageUrl) {
+    document.body.style.setProperty('--custom-bg-image', `url("${imageUrl}")`);
+  } else {
+    document.body.style.removeProperty('--custom-bg-image');
+  }
+}
+
+function readBgInputs() {
+  const color = (document.getElementById('bgColorInput').value || '').trim();
+  const imageUrl = (document.getElementById('bgUrlInput').value || '').trim();
+  return {
+    color: color || null,
+    imageUrl: imageUrl || null,
+  };
+}
+
+async function saveCustomBg(state) {
+  await chrome.storage.local.set({ [BG_KEY]: state });
+  applyCustomBg(state);
+}
+
+async function initBackgroundSettings() {
+  const panel = document.getElementById('bgSettingsPanel');
+  const toggle = document.getElementById('bgSettingsToggle');
+  const colorInput = document.getElementById('bgColorInput');
+  const colorClear = document.getElementById('bgColorClear');
+  const urlInput = document.getElementById('bgUrlInput');
+  const urlApply = document.getElementById('bgUrlApply');
+  const resetBtn = document.getElementById('bgResetBtn');
+  const closeBtn = document.getElementById('bgCloseBtn');
+
+  // Load persisted state and apply + populate inputs.
+  const { [BG_KEY]: saved } = await chrome.storage.local.get(BG_KEY);
+  const state = saved || { color: null, imageUrl: null };
+  applyCustomBg(state);
+  if (state.color) colorInput.value = state.color;
+  if (state.imageUrl) urlInput.value = state.imageUrl;
+
+  // Open / close the panel.
+  toggle.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+  });
+  closeBtn.addEventListener('click', () => { panel.hidden = true; });
+
+  // Close when clicking outside the panel and toggle.
+  document.addEventListener('click', (e) => {
+    if (panel.hidden) return;
+    if (panel.contains(e.target) || toggle.contains(e.target)) return;
+    panel.hidden = true;
+  });
+
+  // Color picker updates live.
+  colorInput.addEventListener('input', async () => {
+    await saveCustomBg(readBgInputs());
+  });
+  colorClear.addEventListener('click', async () => {
+    colorInput.value = '#f4f5f7';
+    const s = readBgInputs(); s.color = null;
+    await saveCustomBg(s);
+  });
+
+  // Image URL applies on button click.
+  urlApply.addEventListener('click', async () => {
+    await saveCustomBg(readBgInputs());
+  });
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); urlApply.click(); }
+  });
+
+  // Reset everything to default.
+  resetBtn.addEventListener('click', async () => {
+    colorInput.value = '#f4f5f7';
+    urlInput.value = '';
+    await saveCustomBg({ color: null, imageUrl: null });
+  });
+
+  // Keep in sync if another Tab Out tab changes the background.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes[BG_KEY]) return;
+    const next = changes[BG_KEY].newValue || { color: null, imageUrl: null };
+    applyCustomBg(next);
+    if (next.color) colorInput.value = next.color;
+    if (next.imageUrl) urlInput.value = next.imageUrl;
+  });
+}
+
+initBackgroundSettings();
