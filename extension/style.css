@@ -5,19 +5,23 @@
    ============================================================ */
 
 :root {
-  --ink: #0f1115;
-  --paper: #f4f5f7;
-  --warm-gray: #ececf1;
-  --muted: #8a8f98;
-  --accent-amber: #6b7aed;
+  --ink: #1f1a14;
+  --paper: #f0e6d2;
+  --paper-rgb: 240, 230, 210;
+ --warm-gray: #e3d7bf;
+ --muted: #6f6253;
+  --ink-soft: #2d2620;
+ --accent-amber: #1f1a14;
+ --accent-amber-rgb: 31, 26, 20;
+ --accent-on: #f0e6d2;
   --accent-sage: #16a6a3;
   --accent-slate: #5b6cff;
   --accent-rose: #e5484d;
   --status-active: #16a6a3;
   --status-cooling: #d98a00;
   --status-abandoned: #e5484d;
-  --card-bg: #ffffff;
-  --shadow: rgba(15, 17, 21, 0.08);
+  --card-bg: #faf5ea;
+  --shadow: rgba(31, 26, 20, 0.10);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -83,8 +87,8 @@ header {
 
 /* ---- Tab cleanup banner ---- */
 .tab-cleanup-banner {
-  background: linear-gradient(135deg, rgba(91, 108, 255, 0.04), rgba(91, 108, 255, 0.09));
-  border: 1px solid rgba(91, 108, 255, 0.18);
+  background: linear-gradient(135deg, rgba(var(--accent-amber-rgb), 0.04), rgba(var(--accent-amber-rgb), 0.09));
+  border: 1px solid rgba(var(--accent-amber-rgb), 0.18);
   border-radius: 8px;
   padding: 16px 24px;
   display: flex;
@@ -103,7 +107,7 @@ header {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(91, 108, 255, 0.1);
+  background: rgba(var(--accent-amber-rgb), 0.10);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -195,10 +199,9 @@ header {
 
 .section-header h2 {
   font-family: 'Newsreader', serif;
-  font-weight: 400;
+  font-weight: 600;
   font-size: 18px;
-  font-style: italic;
-  color: var(--muted);
+  color: var(--ink-soft);
   white-space: nowrap;
 }
 
@@ -332,7 +335,7 @@ header {
   font-size: 10px;
   font-weight: 500;
   color: var(--accent-amber);
-  background: rgba(91, 108, 255, 0.08);
+  background: rgba(var(--accent-amber-rgb), 0.08);
   padding: 2px 8px;
   border-radius: 3px;
 }
@@ -403,7 +406,7 @@ header {
 
 /* Duplicate border highlight */
 .chip-has-dupes {
-  border-color: rgba(91, 108, 255, 0.25);
+  border-color: rgba(var(--accent-amber-rgb), 0.25);
 }
 
 /* Action buttons grouped on the right */
@@ -457,7 +460,7 @@ header {
 }
 
 .page-chip.clickable:hover {
-  background: rgba(91, 108, 255, 0.04);
+  background: rgba(var(--accent-amber-rgb), 0.04);
 }
 
 /* "+N more" overflow chip */
@@ -534,13 +537,13 @@ header {
 }
 
 .action-btn.close-tabs {
-  border-color: rgba(91, 108, 255, 0.3);
+  border-color: rgba(var(--accent-amber-rgb), 0.30);
   color: var(--accent-amber);
-  background: rgba(91, 108, 255, 0.04);
+  background: rgba(var(--accent-amber-rgb), 0.04);
 }
 
 .action-btn.close-tabs:hover {
-  background: rgba(91, 108, 255, 0.1);
+  background: rgba(var(--accent-amber-rgb), 0.10);
   border-color: var(--accent-amber);
 }
 
@@ -1044,9 +1047,9 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 /* ---- Empty state ---- */
 .deferred-empty {
-  font-size: 13px;
-  color: var(--muted);
-  font-style: italic;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
   padding: 24px 0;
   text-align: center;
 }
@@ -1179,7 +1182,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 .search-box:focus-within {
   border-color: var(--accent-amber);
-  box-shadow: 0 2px 10px rgba(91, 108, 255, 0.15);
+  box-shadow: 0 2px 10px rgba(var(--accent-amber-rgb), 0.15);
 }
 
 .search-engine-switch {
@@ -1392,10 +1395,11 @@ body.theme-dark .theme-icon-moon { display: none; }
 
 /* ---- Dark theme: override the design tokens ---- */
 body.theme-dark {
-  --ink: #e8eaed;
-  --paper: #1b1c1f;
-  --warm-gray: #34363b;
-  --muted: #8b9199;
+  --ink: #f1efea;
+  --paper: #0a0a0b;
+  --warm-gray: #1d1d1f;
+  --muted: #8a8780;
+  --ink-soft: #cfc9bc;
   --accent-amber: #8b9aff;
   --accent-sage: #7faa8e;
   --accent-slate: #7d93a6;
@@ -1403,13 +1407,13 @@ body.theme-dark {
   --status-active: #5fae6f;
   --status-cooling: #d4a24a;
   --status-abandoned: #c87878;
-  --card-bg: #24262b;
+  --card-bg: #161618;
   --shadow: rgba(0, 0, 0, 0.35);
 }
 
 /* A couple of hardcoded values that need to follow the theme */
-body.theme-dark .search-submit { color: #1b1c1f; }
-body.theme-dark .search-engine-btn.active { background: #34363b; }
+body.theme-dark .search-submit { color: #0a0a0b; }
+body.theme-dark .search-engine-btn.active { background: #1d1d1f; }
 
 /* Smooth transition when switching themes */
 body, header, .mission-card, .deferred-item, .search-box, .todo-input,
@@ -1441,10 +1445,20 @@ body::after {
 body.has-custom-bg::after { opacity: 1; }
 
 body.has-bg-image::after {
-  box-shadow: inset 0 0 0 9999px rgba(15, 17, 21, 0.35);
+  box-shadow: inset 0 0 0 9999px rgba(var(--paper-rgb), 0.55);
 }
 body.theme-dark.has-bg-image::after {
-  box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 0 9999px rgba(10, 10, 10, 0.70);
+}
+
+/* Keep section labels & empty states readable over any background image */
+body.has-bg-image .section-header h2,
+body.has-bg-image .deferred-empty {
+  text-shadow: none;
+}
+body.theme-dark.has-bg-image .section-header h2,
+body.theme-dark.has-bg-image .deferred-empty {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 /* Settings panel */
