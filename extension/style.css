@@ -1503,3 +1503,9 @@ body.theme-dark.has-bg-image .deferred-empty {
 }
 .bg-reset-btn:hover { border-color: var(--accent-amber); }
 .bg-settings-link:hover { text-decoration: underline; }
+.bg-file-input { display: none; }
+.bg-file-name {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; color: var(--muted);
+}

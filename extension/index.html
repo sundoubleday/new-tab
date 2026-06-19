@@ -176,6 +176,13 @@
       <input type="text" id="bgUrlInput" class="bg-url-input" placeholder="https://... 留空则不使用图片">
       <button type="button" id="bgUrlApply" class="bg-settings-link">应用</button>
     </div>
+    <div class="bg-settings-row">
+      <label for="bgFileInput">本地图片</label>
+      <input type="file" id="bgFileInput" class="bg-file-input" accept="image/*">
+      <button type="button" id="bgFileBtn" class="bg-reset-btn">选择</button>
+      <span id="bgFileName" class="bg-file-name">未选择</span>
+      <button type="button" id="bgFileClear" class="bg-settings-link">清除</button>
+    </div>
     <div class="bg-settings-row bg-settings-actions">
       <button type="button" id="bgResetBtn" class="bg-reset-btn">恢复默认背景</button>
       <button type="button" id="bgCloseBtn" class="bg-settings-link">关闭</button>

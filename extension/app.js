@@ -1680,7 +1680,10 @@ initThemeToggle();
    CUSTOM BACKGROUND — user-defined solid color / image URL
 
    - Stored in chrome.storage.local under BG_KEY.
-   - { color: '#rrggbb' | null, imageUrl: 'https://...' | null }
+   - { color: '#rrggbb' | null, imageUrl: 'https://...' | null,
+       localImage: 'data:image/...' | null }
+   - localImage (uploaded file) and imageUrl are mutually exclusive;
+     localImage takes precedence when both are present.
    - Overrides the default time-of-day background when set.
    - Syncs across open Tab Out tabs via storage.onChanged.
    ================================================================ */
@@ -1690,10 +1693,12 @@ const BG_KEY = 'bgCustom';
 function applyCustomBg(state) {
   const color = state && state.color;
   const imageUrl = state && state.imageUrl;
-  const hasCustom = Boolean(color || imageUrl);
+  const localImage = state && state.localImage;
+  const imageSource = localImage || imageUrl;
+  const hasCustom = Boolean(color || imageSource);
 
   document.body.classList.toggle('has-custom-bg', hasCustom);
-  document.body.classList.toggle('has-bg-image', Boolean(imageUrl));
+  document.body.classList.toggle('has-bg-image', Boolean(imageSource));
 
   if (color) {
     document.body.style.setProperty('--custom-bg-color', color);
@@ -1701,8 +1706,8 @@ function applyCustomBg(state) {
     document.body.style.removeProperty('--custom-bg-color');
   }
 
-  if (imageUrl) {
-    document.body.style.setProperty('--custom-bg-image', `url("${imageUrl}")`);
+  if (imageSource) {
+    document.body.style.setProperty('--custom-bg-image', `url("${imageSource}")`);
   } else {
     document.body.style.removeProperty('--custom-bg-image');
   }
@@ -1722,6 +1727,45 @@ async function saveCustomBg(state) {
   applyCustomBg(state);
 }
 
+// Reads an image File, downscales to maxDim on the long edge, and returns a
+// JPEG/PNG data URL kept small enough for chrome.storage.local (5MB quota).
+function processImageFile(file, maxDim = 1920, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('decode'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) {
+            height = Math.round(height * maxDim / width);
+            width = maxDim;
+          } else {
+            width = Math.round(width * maxDim / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        // Preserve PNG for transparency; compress everything else as JPEG.
+        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        try {
+          resolve(canvas.toDataURL(mime, quality));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function initBackgroundSettings() {
   const panel = document.getElementById('bgSettingsPanel');
   const toggle = document.getElementById('bgSettingsToggle');
@@ -1731,13 +1775,25 @@ async function initBackgroundSettings() {
   const urlApply = document.getElementById('bgUrlApply');
   const resetBtn = document.getElementById('bgResetBtn');
   const closeBtn = document.getElementById('bgCloseBtn');
+  const fileInput = document.getElementById('bgFileInput');
+  const fileBtn = document.getElementById('bgFileBtn');
+  const fileName = document.getElementById('bgFileName');
+  const fileClear = document.getElementById('bgFileClear');
 
   // Load persisted state and apply + populate inputs.
   const { [BG_KEY]: saved } = await chrome.storage.local.get(BG_KEY);
-  const state = saved || { color: null, imageUrl: null };
+  const state = saved || { color: null, imageUrl: null, localImage: null };
+  let localImage = state.localImage || null;
   applyCustomBg(state);
   if (state.color) colorInput.value = state.color;
   if (state.imageUrl) urlInput.value = state.imageUrl;
+  if (localImage) fileName.textContent = '已选图片';
+
+  // Build the full bg state from the URL/color inputs plus current local image.
+  function currentBgState() {
+    const inputs = readBgInputs();
+    return { color: inputs.color, imageUrl: inputs.imageUrl, localImage };
+  }
 
   // Open / close the panel.
   toggle.addEventListener('click', () => {
@@ -1754,36 +1810,82 @@ async function initBackgroundSettings() {
 
   // Color picker updates live.
   colorInput.addEventListener('input', async () => {
-    await saveCustomBg(readBgInputs());
+    await saveCustomBg(currentBgState());
   });
   colorClear.addEventListener('click', async () => {
     colorInput.value = '#f4f5f7';
-    const s = readBgInputs(); s.color = null;
+    const s = currentBgState(); s.color = null;
     await saveCustomBg(s);
   });
 
   // Image URL applies on button click.
   urlApply.addEventListener('click', async () => {
-    await saveCustomBg(readBgInputs());
+    // Applying a URL switches the image source away from the local file.
+    if (urlInput.value.trim()) {
+      localImage = null;
+      fileName.textContent = '未选择';
+      fileInput.value = '';
+    }
+    await saveCustomBg(currentBgState());
   });
   urlInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); urlApply.click(); }
+  });
+
+  // Local image file: pick → compress → store. Mutually exclusive with URL.
+  fileBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      fileName.textContent = '请选择图片文件';
+      fileInput.value = '';
+      return;
+    }
+    try {
+      fileName.textContent = '处理中…';
+      const dataUrl = await processImageFile(file);
+      // Keep well under the 5MB chrome.storage.local quota.
+      if (dataUrl.length > 2_500_000) {
+        fileName.textContent = '图片过大，请换较小的图';
+        fileInput.value = '';
+        return;
+      }
+      localImage = dataUrl;
+      urlInput.value = '';
+      fileName.textContent = file.name.length > 18 ? file.name.slice(0, 15) + '…' : file.name;
+      await saveCustomBg(currentBgState());
+    } catch (err) {
+      fileName.textContent = '处理失败';
+      fileInput.value = '';
+    }
+  });
+  fileClear.addEventListener('click', async () => {
+    localImage = null;
+    fileName.textContent = '未选择';
+    fileInput.value = '';
+    await saveCustomBg(currentBgState());
   });
 
   // Reset everything to default.
   resetBtn.addEventListener('click', async () => {
     colorInput.value = '#f4f5f7';
     urlInput.value = '';
-    await saveCustomBg({ color: null, imageUrl: null });
+    localImage = null;
+    fileName.textContent = '未选择';
+    fileInput.value = '';
+    await saveCustomBg({ color: null, imageUrl: null, localImage: null });
   });
 
   // Keep in sync if another Tab Out tab changes the background.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes[BG_KEY]) return;
-    const next = changes[BG_KEY].newValue || { color: null, imageUrl: null };
+    const next = changes[BG_KEY].newValue || { color: null, imageUrl: null, localImage: null };
     applyCustomBg(next);
     if (next.color) colorInput.value = next.color;
     if (next.imageUrl) urlInput.value = next.imageUrl;
+    localImage = next.localImage || null;
+    fileName.textContent = localImage ? '已选图片' : '未选择';
   });
 }
 
