@@ -30,6 +30,10 @@ The agent will walk you through it. Takes about 1 minute.
 - **Duplicate detection** flags when you have the same page open twice, with one-click cleanup
 - **Click any tab to jump to it** across windows, no new tab opened
 - **Save for later** bookmark tabs to a checklist before closing them
+- **Quick search** a built-in search box to look things up without leaving the new tab
+- **To-do list** jot down tasks right on the new tab; saved locally with your tabs
+- **Dark / light theme** auto day/night switch with a one-click manual toggle
+- **Custom background** set a solid color, paste an image URL, or upload a local image as your wallpaper
 - **Localhost grouping** shows port numbers next to each tab so you can tell your vibe coding projects apart
 - **Expandable groups** show the first 8 tabs with a clickable "+N more"
 - **100% local** your data never leaves your machine
